@@ -1,0 +1,9 @@
+XIVELY_FSM = IDLE,
+IDLE = (idle->IDLE
+		|sample->SAMPLING
+		|receive->RECEIVING),
+SAMPLING = (connect->CONNECTING),
+CONNECTING =(disconnect->IDLE
+			|fail->FAILING),
+RECEIVING = (disconnect->IDLE),
+FAILING = (disconnect->IDLE).
