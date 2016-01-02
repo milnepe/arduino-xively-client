@@ -3,8 +3,8 @@
  arduino-xively-client.ino
 
  Author: Pete Milne
- Date: 20-12-2015
- Version: 0.1
+ Date: 02-01-2016
+ Version: 0.2
 
  Xively Client Finite State Machine
  Sends DS18S20 temperature readings to Xively API using
@@ -67,7 +67,6 @@ boolean alert = false;        // Indicates failed connection
 void(* resetFunc) (void) = 0;
 
 /*******************************************************************/
-/* SETUP                                                           */
 /* Runs once to initialise sensors and Ethernet shield             */
 /*******************************************************************/
 void setup() {
@@ -118,8 +117,7 @@ void setup() {
 
 
 /*******************************************************************/
-/* MAIN LOOP                                                       */
-/* Runs for ever - runs FSM and dispalys system state              */
+/* Runs FSM and displays system state                              */
 /*******************************************************************/
 void loop() {
   check_state();
@@ -222,7 +220,6 @@ void check_state() {
 } // End check_state
 
 /*******************************************************************/
-/* SHOW STATE                                                      */
 /* Set LED's according to alert status                             */
 /*******************************************************************/
 void show_state() {

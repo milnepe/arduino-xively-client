@@ -1,8 +1,8 @@
-Arduino Xively client supporting Maxim DS18S20 temperature sensors
+Robust Arduino Xively client supporting Maxim DS18S20 temperature sensor bus
 
-0.1 Release
+0.2 Release
 
-Copywrite 2015 Peter Milne
+Copywrite 2016 Peter Milne
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -16,6 +16,26 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License 
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+Setup:
+1. Open arduino-xively-client.ino in Arduino IDE
+
+2. Configure Onewire pin & number of sensors - my setup has 2 sensors on pin 7:
+	#define ONEWIRE_BUS 7   // Pin 7 
+	#define NUM_DEVICES 2   // 2 sensors
+
+3. Configure your Xively account settings and sample frequency in client-conf.h
+	#define UPDATE_INTERVAL 20000 // Every 20 seconds
+	#define APIKEY         "MySecretKey1234567890" //Your key
+	#define FEEDID         57506 // Your feed ID
+	#define USERAGENT      "TEST FEED" // Your project name
+
+4. Upload sketch and test - you can see debugging info in serial monitor
+
+The code should discover network connection via DHCP and sensor addresses automagically
+on Onewire bus. This code is specifically for DS18S20 sensors only.
+
+Tested on Arduino Uno / Arduino IDE 1.6.5 / Xively API v2
 
 
 

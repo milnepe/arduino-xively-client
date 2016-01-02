@@ -3,8 +3,8 @@
  arduino-xively-client-actions.ino
 
  Author: Pete Milne
- Date: 20-12-2015
- Version: 0.1
+ Date: 02-01-2016
+ Version: 0.2
 
  Xively Client Finite State Machine Actions
 
@@ -12,8 +12,7 @@
 
 /*******************************************************************/
 /* IDLE ACTION                                                     */
-/* Fires:                                                          */
-/* IDLE events by default                                          */
+/* Fires IDLE events by default                                    */
 /* RECEIVE events if buffer has received response from Xively      */
 /* SAMPLE events if time interval has elapsed                      */
 /*******************************************************************/
@@ -71,7 +70,7 @@ byte action_sample() {
   tempsBuf[1] = -30;
   */
 
-  // Sample temerature sensors
+  /* Sample temerature sensors */
   for (int i = 0; i < NUM_DEVICES; i++) {
     tempsBuf[i] = (getCelsius(deviceAddress[i]));
   }
@@ -80,8 +79,7 @@ byte action_sample() {
 
 /*******************************************************************/
 /* CONNECT ACTION                                                  */
-/* Fires:                                                          */
-/* FAIL events by default                                          */
+/* Fires FAIL events by default                                    */
 /* DISCONNECT events if connection is established                  */
 /* PUT request sends sensor readings to Xively, updates success    */
 /* and resets any alerts                                           */
@@ -105,17 +103,14 @@ byte action_connect()
 
     // calculate number of characters to send
     int dataLength = 0;
-    // calculate number of digits for each temp reading incl sign
+    // calculate number of digits for each temp reading
     for (int i = 0; i < NUM_DEVICES; i++) {
-      if (tempsBuf[i] < 0) { // if temp is below zero
-        dataLength = dataLength + getLength(tempsBuf[i]) + 1;
-      }
-      else dataLength = dataLength + getLength(tempsBuf[i]);
+      dataLength = dataLength + getDigits(tempsBuf[i]);
     }
     // add 2 bytes for channel number (eg. "0,") and 2 bytes for carriage returns, per channel
     dataLength = dataLength + (4 * NUM_DEVICES);
-    dataLength = dataLength + 4 + getLength(successes); // length of successes
-    dataLength = dataLength + 4 + getLength(failures); // length of failures
+    dataLength = dataLength + 4 + getDigits(successes); // length of successes
+    dataLength = dataLength + 4 + getDigits(failures); // length of failures
     client.println(dataLength);
     Serial.println(dataLength);
 
@@ -185,32 +180,31 @@ byte action_disconnect() {
   return event;
 }
 
-/*******************************************************************/
-/* GET LENGTH                                                      */
-/* Calculates number of digits sensor reading.                     */
-/* Since each digit of the ASCII decimal representation is a byte, */
-/* number of digits equals the number of bytes                     */
-/*******************************************************************/
-int getLength(int someValue) {
-  // there's at least one byte:
-  int digits = 1;
+/*--------------------------------------------------------------------*/
+/* Returns number of digits incl minus sign for int n in range        */
+/* INT_MIN <= n <= INT_MAX defined in <limits.h>                      */
+/*--------------------------------------------------------------------*/
+byte getDigits(int n) {
+  // there's at least one digit
+  byte digits = 1;
+  int dividend = abs(n) / 10;
   // continually divide the value by ten,
   // adding one to the digit count for each
-  // time you divide, until you're at 0:
-  int dividend = abs(someValue) / 10;
+  // time you divide, until you're at 0
   while (dividend > 0) {
     dividend = dividend / 10;
     digits++;
   }
-  // return the number of digits:
-  return digits;
+  // for negative numbers add 1 for minus sign
+  if (n < 0)
+    return ++digits;
+  else
+    return digits;
 }
 
 /*******************************************************************/
-/* PRINT ADDRESS                                                   */
 /* Print Onewire device address - for debugging                    */
 /*******************************************************************/
-// Print a device address
 void printAddress(uint8_t *address) {
   for ( int i = 0; i < ADDRESS_SIZE; i++) {
     Serial.print(address[i], HEX);
@@ -218,11 +212,9 @@ void printAddress(uint8_t *address) {
 }
 
 /*******************************************************************/
-/* GET CELSIUS                                                     */
-/* Use sensor address to return sensor reading in celcius as       */
-/* 16 bit signed int                                               */
+/* Return sensor reading in celcius as 16 bit signed int using     */
+/* device address                                                  */
 /*******************************************************************/
-// Return temperature reading using a device address
 int getCelsius(uint8_t *address) {
   uint8_t data[12];
 
