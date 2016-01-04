@@ -35,7 +35,24 @@ Setup:
 The code should discover network connection via DHCP and sensor addresses automagically
 on Onewire bus. This code is specifically for DS18S20 sensors only.
 
-Tested on Arduino Uno / Arduino IDE 1.6.5 / Xively API v2
+Tested on Arduino Duemilanove / Uno / Arduino IDE 1.6.7 / Xively API v2
+
+Pin map showing connections to Ethernet(SPI), display(SPI), Onewire & LED,s:
+
+Pin		Ethernet	TFT		Other
+13		SCK			SCK
+12		??
+10		CS
+09					DC
+08		RESET		RESET
+07							ONEWIRE
+06					LC/CS
+05							RED LED
+04		SD/CS
+03					RESET
+02							GREEN LED
+01							
+00
 
 
 

@@ -3,12 +3,13 @@
  arduino-xively-client.ino
 
  Author: Pete Milne
- Date: 02-01-2016
- Version: 0.2
+ Date: 04-01-2016
+ Version: 0.3
 
  Xively Client Finite State Machine
  Sends DS18S20 temperature readings to Xively API using
  Ethernet Shield. Displays status on Green & Red LED's
+ Displays first 2 readings on Arduino TFT display
 
  Based on code from http://www.arduino.cc
  by David A. Mellis, Tom Igoe, Adrian McEwen
@@ -18,6 +19,7 @@
 #include <SPI.h>
 #include <Ethernet.h>
 #include <OneWire.h>
+#include <TFT.h>  // Arduino LCD library
 #include "client-conf.h"
 
 // DS18S20 config
@@ -43,6 +45,11 @@ char server[] = "api.xively.com";   // name address for xively API
 #define RED_LED 5    // Problem LED pin 5
 #define RESET 8     // Ethernet reset pin 8
 
+// pin definition for TFT
+#define dc   9
+#define cs   6
+#define rst  3
+
 // System states
 #define STATE_IDLE 0
 #define STATE_RECEIVING 1
@@ -66,6 +73,9 @@ boolean alert = false;        // Indicates failed connection
 // Declare reset function @ address 0
 void(* resetFunc) (void) = 0;
 
+// Create TFT instance
+TFT TFTscreen = TFT(cs, dc, rst);
+
 /*******************************************************************/
 /* Runs once to initialise sensors and Ethernet shield             */
 /*******************************************************************/
@@ -83,6 +93,9 @@ void setup() {
   //; // wait for serial port to connect. Needed for Leonardo only
   //}
 
+  // Put this line at the beginning of every sketch that uses the GLCD:
+  TFTscreen.begin();
+  
   // Forced a hardware reset for some Ethernet Shields that 
   // don't initialise correctly on power up.
   // Fixed by bending shield reset pin out of header and
@@ -92,6 +105,8 @@ void setup() {
   delay(200);
   digitalWrite(RESET, HIGH); // Take reset line high again
   // End of fix
+
+  
   
   // Configure Ethernet shield (DHCP)
   delay(2000);  // Allow Shield time to boot
@@ -113,6 +128,19 @@ void setup() {
   Serial.println("No more addresses.");
   ds.reset_search();
   delay(250);
+
+  // Write static text to TFT
+  // clear the screen with a black background
+  TFTscreen.background(0, 0, 0);
+  // set the font color to white
+  TFTscreen.stroke(255, 255, 255);
+  // set the font size
+  TFTscreen.setTextSize(2);
+  // write the text to the top left corner of the screen
+  TFTscreen.text("Inside C:\n ", 0, 0);
+  TFTscreen.text("Outside C:\n ", 0, 60);
+  // set the font size very large for the loop
+  TFTscreen.setTextSize(3);
 }
 
 

@@ -1,12 +1,12 @@
 /*
 
- arduino-xively-client-actions.ino
+  client-actions.ino
 
- Author: Pete Milne
- Date: 02-01-2016
- Version: 0.2
+  Author: Pete Milne
+  Date: 04-01-2016
+  Version: 0.3
 
- Xively Client Finite State Machine Actions
+  Xively Client Finite State Machine Actions
 
 */
 
@@ -65,15 +65,18 @@ byte action_sample() {
   Serial.println("SAMPLE ACTION...");
   byte event = EVENT_CONNECT; // Default
 
-  /* Test - simulate max & min readings
-  tempsBuf[0] = 50;
-  tempsBuf[1] = -30;
-  */
+  //Test - simulate temperature readings
+  tempsBuf[0]++;
+  tempsBuf[1]--;
 
-  /* Sample temerature sensors */
-  for (int i = 0; i < NUM_DEVICES; i++) {
+  /* Sample temerature sensors
+    for (int i = 0; i < NUM_DEVICES; i++) {
     tempsBuf[i] = (getCelsius(deviceAddress[i]));
-  }
+    } */
+
+  // Update display
+  updateDisplay(tempsBuf);
+
   return event;
 }
 
@@ -242,6 +245,51 @@ int getCelsius(uint8_t *address) {
   //raw = (raw & 0xFFF0) + 12 - data[6]; // full 12 bit resolution
   //return (float)raw / 16.0;
   return raw / 16;
+}
+
+/*******************************************************************/
+/* Update TFT display using values passed as pointer               */
+/* Dynamic text must first be cleared by writing over previous     */
+/* value in black, then new values can be written                  */
+/*******************************************************************/
+void updateDisplay(int *value) {
+  // TFT output buffers
+  static char previousInside[4], previousOutside[4];
+  char insidePrintout[4], outsidePrintout[4];
+
+  // Converts ints to char arrays for use by TFT
+  String inside = String(value[0]);
+  inside.toCharArray(insidePrintout, 4);
+  String outside = String(value[1]);
+  outside.toCharArray(outsidePrintout, 4);
+
+  // Clear screen by erasing writing out previous text
+  TFTscreen.stroke(0, 0, 0);
+  TFTscreen.text(previousInside, 0, 20);
+  TFTscreen.text(previousOutside, 0, 80);
+
+  // set the font color
+  tempColour(value[0], 18, 16);
+  // Write out new values
+  TFTscreen.text(insidePrintout, 0, 20);
+  tempColour(value[1], 12, 4);
+  TFTscreen.text(outsidePrintout, 0, 80);
+
+  // Save text for next time
+  for (int i = 0; i < 4; i++) {
+    previousInside[i] = insidePrintout[i];
+    previousOutside[i] = outsidePrintout[i];
+  }
+}
+
+/*******************************************************************/
+/* Helper to set RGB font colour according to normal, medium or    */
+/* low inputs                                                      */
+/*******************************************************************/
+void tempColour(int normal, int medium, int low) {
+  TFTscreen.stroke(125, 250, 5);
+  if (normal < medium)   TFTscreen.stroke(250, 164, 5);
+  if (normal < low)   TFTscreen.stroke(255, 0, 0);
 }
 
 
