@@ -45,9 +45,10 @@ Pin |Ethernet |TFT  | Other
 ----|---------|-----|------
 13  |SCK      |SCK  |
 12  |??       |     |
+11  |MOSI     |MOSI |
 10  |CS       |     |
 09  |         |DC   |
-08  |RESET    |RESET|
+08  |RESET    |     |
 07  |         |     |ONEWIRE
 06  |         |LC/CS|
 05  |         |     |RED LED
