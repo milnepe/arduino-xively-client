@@ -2,9 +2,9 @@
 
  arduino-xively-client.ino
 
- Author: Pete Milne
- Date: 04-01-2016
- Version: 0.3
+  Author: Pete Milne
+  Date: 11-07-2017
+  Version: 0.4
 
  Xively Client Finite State Machine
  Sends DS18S20 temperature readings to Xively API using

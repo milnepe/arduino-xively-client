@@ -3,8 +3,8 @@
   client-actions.ino
 
   Author: Pete Milne
-  Date: 04-01-2016
-  Version: 0.3
+  Date: 11-07-2017
+  Version: 0.4
 
   Xively Client Finite State Machine Actions
 

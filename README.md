@@ -1,8 +1,8 @@
 Robust Arduino Xively client supporting Maxim DS18S20 temperature sensor bus
 
-0.3 Release
+0.4 Release
 
-Copywrite 2016 Peter Milne
+Copywrite 2017 Peter Milne
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
