@@ -27,14 +27,16 @@ byte action_idle() {
   // Check for millis overflow and reset
   if (currentMillis < previousMillis) previousMillis = 0;
 
+  // Sample every UPDATE_INTERVAL
+  if (currentMillis - previousMillis >= UPDATE_INTERVAL) {
+    previousMillis = currentMillis;  // Update comparison
+    event = EVENT_SAMPLE;
+  }
+
   if (client.available()) {
     event = EVENT_RECEIVE;
   } else {
-    // Delay for interval without blocking
-    if (currentMillis - previousMillis >= UPDATE_INTERVAL) {
-      previousMillis = currentMillis;  // Update comparison
-      event = EVENT_SAMPLE;
-    }
+    // do nothing
   }
   return event;
 }
@@ -63,16 +65,19 @@ byte action_receive() {
 /*******************************************************************/
 byte action_sample() {
   Serial.println("SAMPLE ACTION...");
-  byte event = EVENT_CONNECT; // Default
+  //byte event = EVENT_CONNECT; // Default
+  byte event = EVENT_IDLE;    // Testing
 
-  //Test - simulate temperature readings
-  tempsBuf[0]++;
-  tempsBuf[1]--;
+  // Sample sensors
+  sensors.requestTemperatures();
 
-  /* Sample temerature sensors
-    for (int i = 0; i < NUM_DEVICES; i++) {
-    tempsBuf[i] = (getCelsius(deviceAddress[i]));
-    } */
+  for (int i = 0; i < NUM_DEVICES; i++) {
+    tempsBuf[i] = (getCelsius(DeviceAddresses[i]));
+    printAddress(DeviceAddresses[i]); // Debug
+    Serial.println();
+    Serial.println(tempsBuf[i]);
+  }
+
 
   // Update display
   updateDisplay(tempsBuf);
@@ -142,7 +147,7 @@ byte action_connect()
     client.println(failures);
     Serial.println(failures);
 
-    alert = false; // End an alert
+    alertFlag = false; // End an alert
     event = EVENT_DISCONNECT;
   }
   return event;
@@ -158,7 +163,7 @@ byte action_fail() {
 
   byte event = EVENT_DISCONNECT; // Default
 
-  alert = true; // Start an alert
+  alertFlag = true; // Start an alert
   failures++; // Update failure counter
   return event;
 }
@@ -208,9 +213,13 @@ byte getDigits(int n) {
 /*******************************************************************/
 /* Print Onewire device address - for debugging                    */
 /*******************************************************************/
-void printAddress(uint8_t *address) {
-  for ( int i = 0; i < ADDRESS_SIZE; i++) {
-    Serial.print(address[i], HEX);
+void printAddress(DeviceAddress deviceAddress)
+{
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    // zero pad the address if necessary
+    if (deviceAddress[i] < 16) Serial.print("0");
+    Serial.print(deviceAddress[i], HEX);
   }
 }
 
@@ -218,34 +227,12 @@ void printAddress(uint8_t *address) {
 /* Return sensor reading in celcius as 16 bit signed int using     */
 /* device address                                                  */
 /*******************************************************************/
-int getCelsius(uint8_t *address) {
-  uint8_t data[12];
-
-  ds.reset();
-  ds.select(address);
-  ds.write(0x44, 1); // start conversion, using parasite power
-
-  delay(1000);     // maybe 750ms is enough, maybe not
-  // we might do a ds.depower() here, but the reset will take care of it.
-
-  ds.reset();
-  ds.select(address);
-  ds.write(0xBE);         // Read Scratchpad
-
-  for (int i = 0; i < 9; i++) {           // we need 9 bytes
-    data[i] = ds.read();
-    //Serial.print(data[i], HEX);
-  }
-  // Convert the data to actual temperature
-  // because the result is a 16 bit signed integer, it should
-  // be stored to an "int16_t" type, which is always 16 bits
-  // even when compiled on a 32 bit processor.
-  int16_t raw = (data[1] << 8) | data[0];
-  raw = raw << 3; // 9 bit resolution default
-  //raw = (raw & 0xFFF0) + 12 - data[6]; // full 12 bit resolution
-  //return (float)raw / 16.0;
-  return raw / 16;
+int16_t getCelsius(DeviceAddress deviceAddress)
+{
+  int16_t raw = sensors.getTemp(deviceAddress);
+  return raw / 128;
 }
+
 
 /*******************************************************************/
 /* Update TFT display using values passed as pointer               */

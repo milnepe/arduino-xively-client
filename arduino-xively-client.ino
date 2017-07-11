@@ -1,54 +1,37 @@
 /*
 
- arduino-xively-client.ino
+  arduino-xively-client.ino
 
   Author: Pete Milne
   Date: 11-07-2017
   Version: 0.4
 
- Xively Client Finite State Machine
- Sends DS18S20 temperature readings to Xively API using
- Ethernet Shield. Displays status on Green & Red LED's
- Displays first 2 readings on Arduino TFT display
+  Xively Client Finite State Machine
+  Sends DS18S20 temperature readings to Xively API using
+  Ethernet Shield. Displays status on Green & Red LED's
+  Displays first 2 readings on Arduino TFT display
 
- Based on code from http://www.arduino.cc
- by David A. Mellis, Tom Igoe, Adrian McEwen
+  Based on code from http://www.arduino.cc
+  by David A. Mellis, Tom Igoe, Adrian McEwen
 
- */
+*/
 
 #include <SPI.h>
 #include <Ethernet.h>
 #include <OneWire.h>
+#include <DallasTemperature.h>
 #include <TFT.h>  // Arduino LCD library
 #include "client-conf.h"
 
-// DS18S20 config
-#define ONEWIRE_BUS 7   // Pin for bus 
-#define NUM_DEVICES 2   // Number of devices on bus
-#define ADDRESS_SIZE 8  // 8 byte device address
+// Counters
+unsigned long successes = 0;  // Number of successful connections
+unsigned long failures = 0;   // Number of failed connections
+boolean alertFlag = false;    // Indicates failed connection
 
-uint8_t deviceAddress[NUM_DEVICES][ADDRESS_SIZE]; // Buffer for each device address
-int tempsBuf[NUM_DEVICES]; // Buffer for each temperature reading
-OneWire  ds(ONEWIRE_BUS);  // (a 4.7K resistor is necessary)
-
-// Ethernet config
-byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED }; // MAC address for ethernet controller
-EthernetClient client; // initialize instance
-
-// If you don't want to use DNS (and reduce your sketch size)
-// use the numeric IP instead of the name for the server:
-// IPAddress server(216,52,233,122);
-char server[] = "api.xively.com";   // name address for xively API
-
-// I/O pins
-#define GREEN_LED 2 // Normal LED pin 2
-#define RED_LED 5    // Problem LED pin 5
+// LED pins
+#define HEARTBEAT_LED 2 // Heartbeat LED pin 2
+#define WARNING_LED 5    // Warning LED pin 5
 #define RESET 8     // Ethernet reset pin 8
-
-// pin definition for TFT
-#define dc   9
-#define cs   6
-#define rst  3
 
 // System states
 #define STATE_IDLE 0
@@ -65,16 +48,35 @@ char server[] = "api.xively.com";   // name address for xively API
 #define EVENT_DISCONNECT 4
 #define EVENT_FAIL 5
 
-// Counters
-unsigned long successes = 0;  // Number of successful connections
-unsigned long failures = 0;   // Number of failed connections
-boolean alert = false;        // Indicates failed connection
+// Dallas OneWire config
+#define ONEWIRE_BUS 7   // Pin for bus 
+#define NUM_DEVICES 2   // Number of devices on bus
+#define ADDRESS_SIZE 8  // 8 byte device address
+#define TEMPERATURE_PRECISION 9 // device precision
+
+OneWire  oneWire(ONEWIRE_BUS);  // (a 4.7K resistor is necessary)
+DallasTemperature sensors(&oneWire);
+DeviceAddress DeviceAddresses[NUM_DEVICES]; // Buffer for each device address
+int16_t tempsBuf[NUM_DEVICES]; // Buffer for each temperature reading
+
+// Ethernet config
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED }; // MAC address for ethernet controller
+EthernetClient client; // initialize instance
+
+// If you don't want to use DNS (and reduce your sketch size)
+// use the numeric IP instead of the name for the server:
+// IPAddress server(216,52,233,122);
+char server[] = "api.xively.com";   // name address for xively API
+
+// TFT display config
+#define dc   9
+#define cs   6
+#define rst  3
+
+TFT TFTscreen = TFT(cs, dc, rst);
 
 // Declare reset function @ address 0
 void(* resetFunc) (void) = 0;
-
-// Create TFT instance
-TFT TFTscreen = TFT(cs, dc, rst);
 
 /*******************************************************************/
 /* Runs once to initialise sensors and Ethernet shield             */
@@ -82,53 +84,55 @@ TFT TFTscreen = TFT(cs, dc, rst);
 void setup() {
 
   // Setup I/O pins
-  pinMode(GREEN_LED, OUTPUT);
-  pinMode(RED_LED, OUTPUT);
+  pinMode(HEARTBEAT_LED, OUTPUT);
+  pinMode(WARNING_LED, OUTPUT);
   pinMode(RESET, OUTPUT);
 
   // Open serial communications and wait for port to open:
   Serial.begin(9600);
   Serial.println("Starting...");
-  //while (!Serial) {
-  //; // wait for serial port to connect. Needed for Leonardo only
-  //}
 
-  // Put this line at the beginning of every sketch that uses the GLCD:
-  TFTscreen.begin();
-  
-  // Forced a hardware reset for some Ethernet Shields that 
-  // don't initialise correctly on power up.
-  // Fixed by bending shield reset pin out of header and
-  // connecting to RESET pin on Arduino
-  // Start fix
-  digitalWrite(RESET, LOW); // Take reset line low
-  delay(200);
-  digitalWrite(RESET, HIGH); // Take reset line high again
-  // End of fix
-
-  
-  
-  // Configure Ethernet shield (DHCP)
-  delay(2000);  // Allow Shield time to boot
-  if (Ethernet.begin(mac) == 0) {
-    Serial.println("Failed to configure Ethernet using DHCP");
-    // DHCP failed, keep resetting Arduino
-    Serial.println("resetting");
-    delay(1000);
-    resetFunc();  //call reset
-  }
-
-  // Search DS18S20 sensor addresses and store in array
+  // Initialise OneWire bus
+  sensors.begin();
+  oneWire.reset_search();
   for (int i = 0; i < NUM_DEVICES ; i++ ) {
-    if (ds.search(deviceAddress[i])) { // Load each address into array
-      printAddress(deviceAddress[i]); // Print address from array
+    if (oneWire.search(DeviceAddresses[i])) { // Load each address into array
+      printAddress(DeviceAddresses[i]); // Print address from array
       Serial.println();
     }
   }
   Serial.println("No more addresses.");
-  ds.reset_search();
-  delay(250);
 
+  for (int i = 0; i < NUM_DEVICES ; i++ ) {
+    sensors.setResolution(DeviceAddresses[i], TEMPERATURE_PRECISION);
+    Serial.print("Device 0 Resolution: ");
+    Serial.print(sensors.getResolution(DeviceAddresses[i]), DEC);
+    Serial.println();
+  }
+
+  /*
+    // Initialise Ethernet Shield (DHCP)
+
+    // Forced a hardware reset for some Ethernet Shields that
+    // don't initialise correctly on power up.
+    // Fixed by bending shield reset pin out of header and
+    // connecting to RESET pin on Arduino
+    digitalWrite(RESET, LOW); // Take reset line low
+    delay(200);
+    digitalWrite(RESET, HIGH); // Take reset line high again
+    // End of fix
+
+    delay(2000);  // Allow Shield time to boot
+    if (Ethernet.begin(mac) == 0) {
+      Serial.println("Failed to configure Ethernet using DHCP");
+      // DHCP failed, keep resetting Arduino
+      Serial.println("resetting");
+      delay(1000);
+      resetFunc();  //call reset
+    }
+  */
+  // Initialise TFT display
+  TFTscreen.begin();
   // Write static text to TFT
   // clear the screen with a black background
   TFTscreen.background(0, 0, 0);
@@ -141,6 +145,7 @@ void setup() {
   TFTscreen.text("Outside C:\n ", 0, 60);
   // set the font size very large for the loop
   TFTscreen.setTextSize(3);
+
 }
 
 
@@ -151,7 +156,6 @@ void loop() {
   check_state();
   show_state();
   Serial.println();
-  //delay(1000);
 }
 
 /*******************************************************************/
@@ -200,6 +204,12 @@ void check_state() {
           Serial.println("CONNECT EVENT...");
           state = STATE_CONNECTING;
           event = action_connect();
+          break;
+
+        case EVENT_IDLE:
+          Serial.println("IDLE EVENT...");
+          state = STATE_IDLE;
+          event = action_idle();
           break;
       }
       break; // End SAMPLING state
@@ -268,14 +278,14 @@ void show_state() {
     else
       ledState = LOW;
 
-    if (!alert) {
+    if (!alertFlag) {
       // set the LED with the ledState of the variable:
-      digitalWrite(GREEN_LED, ledState);
-      digitalWrite(RED_LED, LOW);
+      digitalWrite(HEARTBEAT_LED, ledState);
+      digitalWrite(WARNING_LED, LOW);
     }
     else {
-      digitalWrite(GREEN_LED, LOW);
-      digitalWrite(RED_LED, ledState);
+      digitalWrite(HEARTBEAT_LED, LOW);
+      digitalWrite(WARNING_LED, ledState);
     }
   }
 }
