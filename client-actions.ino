@@ -69,18 +69,10 @@ byte action_sample() {
   byte event = EVENT_IDLE;    // Testing
 
   // Sample sensors
-  sensors.requestTemperatures();
-
-  for (int i = 0; i < NUM_DEVICES; i++) {
-    tempsBuf[i] = (getCelsius(sensors,deviceAddress[i]));
-    printAddress(deviceAddress[i]); // Debug
-    Serial.println();
-    Serial.println(tempsBuf[i]);
-  }
-
-
+  sampleSensors();
+  
   // Update display
-//  updateDisplay(tempsBuf);
+  updateDisplay(tempsBuf);
 
   return event;
 }
@@ -188,10 +180,10 @@ byte action_disconnect() {
   return event;
 }
 
-/*--------------------------------------------------------------------*/
+/**********************************************************************/
 /* Returns number of digits incl minus sign for int n in range        */
 /* INT_MIN <= n <= INT_MAX defined in <limits.h>                      */
-/*--------------------------------------------------------------------*/
+/**********************************************************************/
 byte getDigits(int n) {
   // there's at least one digit
   byte digits = 1;
@@ -211,6 +203,20 @@ byte getDigits(int n) {
 }
 
 /*******************************************************************/
+/* Sample sensors                                                  */
+/*******************************************************************/
+void sampleSensors() {
+  sensors.requestTemperatures();
+
+  for (int i = 0; i < NUM_DEVICES; i++) {
+    tempsBuf[i] = (getCelsius(deviceAddress[i]));
+    printAddress(deviceAddress[i]);
+    Serial.print(" ");
+    Serial.println(tempsBuf[i]);
+  }
+}
+
+/*******************************************************************/
 /* Print Onewire device address - for debugging                    */
 /*******************************************************************/
 void printAddress(DeviceAddress device)
@@ -227,9 +233,9 @@ void printAddress(DeviceAddress device)
 /* Return sensor reading in celcius as 16 bit signed int using     */
 /* device address                                                  */
 /*******************************************************************/
-int16_t getCelsius(DallasTemperature sensor, DeviceAddress device)
+int16_t getCelsius(DeviceAddress device)
 {
-  int16_t raw = sensor.getTemp(device);
+  int16_t raw = sensors.getTemp(device);
   return raw / 128;
 }
 
@@ -239,7 +245,6 @@ int16_t getCelsius(DallasTemperature sensor, DeviceAddress device)
 /* Dynamic text must first be cleared by writing over previous     */
 /* value in black, then new values can be written                  */
 /*******************************************************************/
-/*
 void updateDisplay(int *value) {
   // TFT output buffers
   static char previousInside[4], previousOutside[4];
@@ -269,17 +274,15 @@ void updateDisplay(int *value) {
     previousOutside[i] = outsidePrintout[i];
   }
 }
-*/
 
 /*******************************************************************/
 /* Helper to set RGB font colour according to normal, medium or    */
 /* low inputs                                                      */
 /*******************************************************************/
-/*
 void tempColour(int normal, int medium, int low) {
   TFTscreen.stroke(125, 250, 5);
   if (normal < medium)   TFTscreen.stroke(250, 164, 5);
   if (normal < low)   TFTscreen.stroke(255, 0, 0);
 }
-*/
+
 

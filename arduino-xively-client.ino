@@ -7,7 +7,7 @@
   Version: 0.4
 
   Xively Client Finite State Machine
-  Sends DS18S20 temperature readings to Xively API using
+  Sends DS18X20 temperature readings to Xively API using
   Ethernet Shield. Displays status on Green & Red LED's
   Displays first 2 readings on Arduino TFT display
 
@@ -72,7 +72,7 @@ char server[] = "api.xively.com";   // name address for xively API
 #define CS 6
 #define RST 3
 
-//TFT TFTscreen = TFT(CS, DC, RST);
+TFT TFTscreen = TFT(CS, DC, RST);
 
 // Declare reset function @ address 0
 void(* resetFunc) (void) = 0;
@@ -92,10 +92,10 @@ void setup() {
   Serial.println("Starting...");
 
   // Initialise OneWire bus & Temperature sensors 
-  oneWireInit(&oneWire, &sensors, deviceAddress);
+  oneWireInit();  
 
   // Initialise TFT display
-  //displayInit(TFTscreen);
+  displayInit();
 
   // Initialise Ethernet adapter
   // ethernetInit(client);
@@ -248,29 +248,30 @@ void show_state() {
 /*******************************************************************/
 /* Initialise OneWire bus & Temperature sensors                    */
 /*******************************************************************/
-void oneWireInit(OneWire  *bus, DallasTemperature *sensor, DeviceAddress *device) {
-  sensor->begin();
-  bus->reset_search();
+void oneWireInit() {
+  sensors.begin();
+  oneWire.reset_search();
   for (int i = 0; i < NUM_DEVICES ; i++ ) {
-    if (bus->search(device[i])) { // Load each address into array
-      printAddress(device[i]); // Print address from array
+    if (oneWire.search(deviceAddress[i])) { // Load each address into array
+      printAddress(deviceAddress[i]); // Print address from array
       Serial.println();
     }
   }
   Serial.println("No more addresses.");
 
   for (int i = 0; i < NUM_DEVICES ; i++ ) {
-    sensors.setResolution(device[i], TEMPERATURE_PRECISION);
+    sensors.setResolution(deviceAddress[i], TEMPERATURE_PRECISION);
     Serial.print("Device Resolution: ");
-    Serial.print(sensor->getResolution(device[i]), DEC);
+    Serial.print(sensors.getResolution(deviceAddress[i]), DEC);
     Serial.println();
   }
 }
-/*
-// Initialise TFT display
-void displayInit(TFT TFTscreen) {
+
+/*******************************************************************/
+/* Initialise TFT display                                          */
+/*******************************************************************/
+void displayInit() {
   TFTscreen.begin();
-  // Write static text to TFT
   // clear the screen with a black background
   TFTscreen.background(0, 0, 0);
   // set the font color to white
@@ -284,6 +285,7 @@ void displayInit(TFT TFTscreen) {
   TFTscreen.setTextSize(3);
 }
 
+/*
 // Initialise Ethernet adapter
 void ethernetInit(EthernetClient client) {
   // Initialise Ethernet Shield (DHCP)
