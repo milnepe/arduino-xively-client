@@ -72,15 +72,15 @@ byte action_sample() {
   sensors.requestTemperatures();
 
   for (int i = 0; i < NUM_DEVICES; i++) {
-    tempsBuf[i] = (getCelsius(DeviceAddresses[i]));
-    printAddress(DeviceAddresses[i]); // Debug
+    tempsBuf[i] = (getCelsius(sensors,deviceAddress[i]));
+    printAddress(deviceAddress[i]); // Debug
     Serial.println();
     Serial.println(tempsBuf[i]);
   }
 
 
   // Update display
-  updateDisplay(tempsBuf);
+//  updateDisplay(tempsBuf);
 
   return event;
 }
@@ -213,13 +213,13 @@ byte getDigits(int n) {
 /*******************************************************************/
 /* Print Onewire device address - for debugging                    */
 /*******************************************************************/
-void printAddress(DeviceAddress deviceAddress)
+void printAddress(DeviceAddress device)
 {
   for (uint8_t i = 0; i < 8; i++)
   {
     // zero pad the address if necessary
-    if (deviceAddress[i] < 16) Serial.print("0");
-    Serial.print(deviceAddress[i], HEX);
+    if (device[i] < 16) Serial.print("0");
+    Serial.print(device[i], HEX);
   }
 }
 
@@ -227,9 +227,9 @@ void printAddress(DeviceAddress deviceAddress)
 /* Return sensor reading in celcius as 16 bit signed int using     */
 /* device address                                                  */
 /*******************************************************************/
-int16_t getCelsius(DeviceAddress deviceAddress)
+int16_t getCelsius(DallasTemperature sensor, DeviceAddress device)
 {
-  int16_t raw = sensors.getTemp(deviceAddress);
+  int16_t raw = sensor.getTemp(device);
   return raw / 128;
 }
 
@@ -239,6 +239,7 @@ int16_t getCelsius(DeviceAddress deviceAddress)
 /* Dynamic text must first be cleared by writing over previous     */
 /* value in black, then new values can be written                  */
 /*******************************************************************/
+/*
 void updateDisplay(int *value) {
   // TFT output buffers
   static char previousInside[4], previousOutside[4];
@@ -268,15 +269,17 @@ void updateDisplay(int *value) {
     previousOutside[i] = outsidePrintout[i];
   }
 }
+*/
 
 /*******************************************************************/
 /* Helper to set RGB font colour according to normal, medium or    */
 /* low inputs                                                      */
 /*******************************************************************/
+/*
 void tempColour(int normal, int medium, int low) {
   TFTscreen.stroke(125, 250, 5);
   if (normal < medium)   TFTscreen.stroke(250, 164, 5);
   if (normal < low)   TFTscreen.stroke(255, 0, 0);
 }
-
+*/
 

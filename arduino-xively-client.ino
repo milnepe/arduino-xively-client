@@ -51,12 +51,11 @@ boolean alertFlag = false;    // Indicates failed connection
 // Dallas OneWire config
 #define ONEWIRE_BUS 7   // Pin for bus 
 #define NUM_DEVICES 2   // Number of devices on bus
-#define ADDRESS_SIZE 8  // 8 byte device address
 #define TEMPERATURE_PRECISION 9 // device precision
 
 OneWire  oneWire(ONEWIRE_BUS);  // (a 4.7K resistor is necessary)
 DallasTemperature sensors(&oneWire);
-DeviceAddress DeviceAddresses[NUM_DEVICES]; // Buffer for each device address
+DeviceAddress deviceAddress[NUM_DEVICES]; // Buffer for each device address
 int16_t tempsBuf[NUM_DEVICES]; // Buffer for each temperature reading
 
 // Ethernet config
@@ -69,11 +68,11 @@ EthernetClient client; // initialize instance
 char server[] = "api.xively.com";   // name address for xively API
 
 // TFT display config
-#define dc   9
-#define cs   6
-#define rst  3
+#define DC 9
+#define CS 6
+#define RST 3
 
-TFT TFTscreen = TFT(cs, dc, rst);
+//TFT TFTscreen = TFT(CS, DC, RST);
 
 // Declare reset function @ address 0
 void(* resetFunc) (void) = 0;
@@ -92,59 +91,14 @@ void setup() {
   Serial.begin(9600);
   Serial.println("Starting...");
 
-  // Initialise OneWire bus
-  sensors.begin();
-  oneWire.reset_search();
-  for (int i = 0; i < NUM_DEVICES ; i++ ) {
-    if (oneWire.search(DeviceAddresses[i])) { // Load each address into array
-      printAddress(DeviceAddresses[i]); // Print address from array
-      Serial.println();
-    }
-  }
-  Serial.println("No more addresses.");
+  // Initialise OneWire bus & Temperature sensors 
+  oneWireInit(&oneWire, &sensors, deviceAddress);
 
-  for (int i = 0; i < NUM_DEVICES ; i++ ) {
-    sensors.setResolution(DeviceAddresses[i], TEMPERATURE_PRECISION);
-    Serial.print("Device 0 Resolution: ");
-    Serial.print(sensors.getResolution(DeviceAddresses[i]), DEC);
-    Serial.println();
-  }
-
-  /*
-    // Initialise Ethernet Shield (DHCP)
-
-    // Forced a hardware reset for some Ethernet Shields that
-    // don't initialise correctly on power up.
-    // Fixed by bending shield reset pin out of header and
-    // connecting to RESET pin on Arduino
-    digitalWrite(RESET, LOW); // Take reset line low
-    delay(200);
-    digitalWrite(RESET, HIGH); // Take reset line high again
-    // End of fix
-
-    delay(2000);  // Allow Shield time to boot
-    if (Ethernet.begin(mac) == 0) {
-      Serial.println("Failed to configure Ethernet using DHCP");
-      // DHCP failed, keep resetting Arduino
-      Serial.println("resetting");
-      delay(1000);
-      resetFunc();  //call reset
-    }
-  */
   // Initialise TFT display
-  TFTscreen.begin();
-  // Write static text to TFT
-  // clear the screen with a black background
-  TFTscreen.background(0, 0, 0);
-  // set the font color to white
-  TFTscreen.stroke(255, 255, 255);
-  // set the font size
-  TFTscreen.setTextSize(2);
-  // write the text to the top left corner of the screen
-  TFTscreen.text("Inside C:\n ", 0, 0);
-  TFTscreen.text("Outside C:\n ", 0, 60);
-  // set the font size very large for the loop
-  TFTscreen.setTextSize(3);
+  //displayInit(TFTscreen);
+
+  // Initialise Ethernet adapter
+  // ethernetInit(client);
 
 }
 
@@ -206,6 +160,7 @@ void check_state() {
           event = action_connect();
           break;
 
+        // For testing
         case EVENT_IDLE:
           Serial.println("IDLE EVENT...");
           state = STATE_IDLE;
@@ -290,3 +245,65 @@ void show_state() {
   }
 }
 
+/*******************************************************************/
+/* Initialise OneWire bus & Temperature sensors                    */
+/*******************************************************************/
+void oneWireInit(OneWire  *bus, DallasTemperature *sensor, DeviceAddress *device) {
+  sensor->begin();
+  bus->reset_search();
+  for (int i = 0; i < NUM_DEVICES ; i++ ) {
+    if (bus->search(device[i])) { // Load each address into array
+      printAddress(device[i]); // Print address from array
+      Serial.println();
+    }
+  }
+  Serial.println("No more addresses.");
+
+  for (int i = 0; i < NUM_DEVICES ; i++ ) {
+    sensors.setResolution(device[i], TEMPERATURE_PRECISION);
+    Serial.print("Device Resolution: ");
+    Serial.print(sensor->getResolution(device[i]), DEC);
+    Serial.println();
+  }
+}
+/*
+// Initialise TFT display
+void displayInit(TFT TFTscreen) {
+  TFTscreen.begin();
+  // Write static text to TFT
+  // clear the screen with a black background
+  TFTscreen.background(0, 0, 0);
+  // set the font color to white
+  TFTscreen.stroke(255, 255, 255);
+  // set the font size
+  TFTscreen.setTextSize(2);
+  // write the text to the top left corner of the screen
+  TFTscreen.text("Inside C:\n ", 0, 0);
+  TFTscreen.text("Outside C:\n ", 0, 60);
+  // set the font size very large for the loop
+  TFTscreen.setTextSize(3);
+}
+
+// Initialise Ethernet adapter
+void ethernetInit(EthernetClient client) {
+  // Initialise Ethernet Shield (DHCP)
+
+  // Forced a hardware reset for some Ethernet Shields that
+  // don't initialise correctly on power up.
+  // Fixed by bending shield reset pin out of header and
+  // connecting to RESET pin on Arduino
+  digitalWrite(RESET, LOW); // Take reset line low
+  delay(200);
+  digitalWrite(RESET, HIGH); // Take reset line high again
+  // End of fix
+
+  delay(2000);  // Allow Shield time to boot
+  if (Ethernet.begin(mac) == 0) {
+    Serial.println("Failed to configure Ethernet using DHCP");
+    // DHCP failed, keep resetting Arduino
+    Serial.println("resetting");
+    delay(1000);
+    resetFunc();  //call reset
+  }
+}
+*/
