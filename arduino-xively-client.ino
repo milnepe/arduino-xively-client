@@ -23,15 +23,19 @@
 #include <TFT.h>  // Arduino LCD library
 #include "client-conf.h"
 
-// Counters
-unsigned long successes = 0;  // Number of successful connections
-unsigned long failures = 0;   // Number of failed connections
-boolean alertFlag = false;    // Indicates failed connection
+#define DEBUG_SERIAL
+#define DEBUG
+#define DEBUG_ONEWIRE
+#include "DebugUtils.h"
 
-// LED pins
+// I/O pins
 #define HEARTBEAT_LED 2 // Heartbeat LED pin 2
-#define WARNING_LED 5    // Warning LED pin 5
-#define RESET 8     // Ethernet reset pin 8
+#define RST 3           // TFT display reset
+#define WARNING_LED 5   // Warning LED pin 5
+#define CS 6            // TFT display CS
+#define ONEWIRE_BUS 7   // OneWire bus 
+#define RESET 8         // Ethernet reset pin 8
+#define DC 9            // TFT display DC
 
 // System states
 #define STATE_IDLE 0
@@ -49,7 +53,6 @@ boolean alertFlag = false;    // Indicates failed connection
 #define EVENT_FAIL 5
 
 // Dallas OneWire config
-#define ONEWIRE_BUS 7   // Pin for bus 
 #define NUM_DEVICES 2   // Number of devices on bus
 #define TEMPERATURE_PRECISION 9 // device precision
 
@@ -68,11 +71,12 @@ EthernetClient client; // initialize instance
 char server[] = "api.xively.com";   // name address for xively API
 
 // TFT display config
-#define DC 9
-#define CS 6
-#define RST 3
-
 TFT TFTscreen = TFT(CS, DC, RST);
+
+// Counters
+unsigned long successes = 0;  // Number of successful connections
+unsigned long failures = 0;   // Number of failed connections
+boolean alertFlag = false;    // Indicates failed connection
 
 // Declare reset function @ address 0
 void(* resetFunc) (void) = 0;
@@ -81,15 +85,15 @@ void(* resetFunc) (void) = 0;
 /* Runs once to initialise sensors and Ethernet shield             */
 /*******************************************************************/
 void setup() {
+  #ifdef DEBUG_SERIAL  
+    Serial.begin(9600);
+    Serial.println("Starting...");
+  #endif    
 
-  // Setup I/O pins
+  // Configure I/O pins
   pinMode(HEARTBEAT_LED, OUTPUT);
   pinMode(WARNING_LED, OUTPUT);
   pinMode(RESET, OUTPUT);
-
-  // Open serial communications and wait for port to open:
-  Serial.begin(9600);
-  Serial.println("Starting...");
 
   // Initialise OneWire bus & Temperature sensors 
   oneWireInit();  
@@ -99,9 +103,7 @@ void setup() {
 
   // Initialise Ethernet adapter
   // ethernetInit(client);
-
 }
-
 
 /*******************************************************************/
 /* Runs FSM and displays system state                              */
@@ -109,7 +111,6 @@ void setup() {
 void loop() {
   check_state();
   show_state();
-  Serial.println();
 }
 
 /*******************************************************************/
@@ -128,23 +129,23 @@ void check_state() {
   static byte event = EVENT_IDLE;
   switch ( state )  {
     case STATE_IDLE:
-      Serial.println("IDLE STATE...");
+      DEBUG_PRINT("IDLE STATE...");
       switch ( event ) {
 
         case EVENT_IDLE:
-          Serial.println("IDLE EVENT...");
+          DEBUG_PRINT("IDLE EVENT...");
           state = STATE_IDLE;
           event = action_idle();
           break;
 
         case EVENT_SAMPLE:
-          Serial.println("SAMPLE EVENT...");
+          DEBUG_PRINT("SAMPLE EVENT...");
           state = STATE_SAMPLING;
           event = action_sample();
           break;
 
         case EVENT_RECEIVE:
-          Serial.println("RECEIVE EVENT...");
+          DEBUG_PRINT("RECEIVE EVENT...");
           state = STATE_RECEIVING;
           event = action_receive();
           break;
@@ -152,17 +153,17 @@ void check_state() {
       break; // End IDLE state
 
     case STATE_SAMPLING:
-      Serial.println("SAMPLING STATE...");
+      DEBUG_PRINT("SAMPLING STATE...");
       switch ( event ) {
         case EVENT_CONNECT:
-          Serial.println("CONNECT EVENT...");
+          DEBUG_PRINT("CONNECT EVENT...");
           state = STATE_CONNECTING;
           event = action_connect();
           break;
 
         // For testing
         case EVENT_IDLE:
-          Serial.println("IDLE EVENT...");
+          DEBUG_PRINT("IDLE EVENT...");
           state = STATE_IDLE;
           event = action_idle();
           break;
@@ -170,17 +171,17 @@ void check_state() {
       break; // End SAMPLING state
 
     case STATE_CONNECTING:
-      Serial.println("CONNECTING STATE...");
+      DEBUG_PRINT("CONNECTING STATE...");
       switch ( event ) {
 
         case EVENT_DISCONNECT:
-          Serial.println("DISCONNECT EVENT...");
+          DEBUG_PRINT("DISCONNECT EVENT...");
           state = STATE_IDLE;
           event = action_disconnect();
           break;
 
         case EVENT_FAIL:
-          Serial.println("FAIL EVENT...");
+          DEBUG_PRINT("FAIL EVENT...");
           state = STATE_FAILING;
           event = action_fail();
           break;
@@ -188,10 +189,10 @@ void check_state() {
       break; // End CONNECTING state
 
     case STATE_FAILING:
-      Serial.println("FAILING STATE...");
+      DEBUG_PRINT("FAILING STATE...");
       switch ( event ) {
         case EVENT_DISCONNECT:
-          Serial.println("DISCONNECT EVENT...");
+          DEBUG_PRINT("DISCONNECT EVENT...");
           state = STATE_IDLE;
           event = action_disconnect();
           break;
@@ -199,10 +200,10 @@ void check_state() {
       break; // End FAILING state
 
     case STATE_RECEIVING:
-      Serial.println("RECEIVING STATE...");
+      DEBUG_PRINT("RECEIVING STATE...");
       switch ( event ) {
         case EVENT_DISCONNECT:
-          Serial.println("DISCONNECT EVENT...");
+          DEBUG_PRINT("DISCONNECT EVENT...");
           state = STATE_IDLE;
           event = action_disconnect();
           break;
@@ -253,17 +254,14 @@ void oneWireInit() {
   oneWire.reset_search();
   for (int i = 0; i < NUM_DEVICES ; i++ ) {
     if (oneWire.search(deviceAddress[i])) { // Load each address into array
-      printAddress(deviceAddress[i]); // Print address from array
-      Serial.println();
+      sensors.setResolution(deviceAddress[i], TEMPERATURE_PRECISION);      
+      #ifdef DEBUG_ONEWIRE      
+        printAddress(deviceAddress[i]); // Print address from array
+        Serial.print(" Device Resolution: ");
+        Serial.print(sensors.getResolution(deviceAddress[i]), DEC);
+        Serial.println();        
+      #endif        
     }
-  }
-  Serial.println("No more addresses.");
-
-  for (int i = 0; i < NUM_DEVICES ; i++ ) {
-    sensors.setResolution(deviceAddress[i], TEMPERATURE_PRECISION);
-    Serial.print("Device Resolution: ");
-    Serial.print(sensors.getResolution(deviceAddress[i]), DEC);
-    Serial.println();
   }
 }
 
@@ -283,6 +281,19 @@ void displayInit() {
   TFTscreen.text("Outside C:\n ", 0, 60);
   // set the font size very large for the loop
   TFTscreen.setTextSize(3);
+}
+
+/*******************************************************************/
+/* Print Onewire device address - for debugging                    */
+/*******************************************************************/
+void printAddress(DeviceAddress device)
+{
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    // zero pad the address if necessary
+    if (device[i] < 16) Serial.print("0");
+    Serial.print(device[i], HEX);
+  }
 }
 
 /*

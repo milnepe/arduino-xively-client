@@ -17,7 +17,7 @@
 /* SAMPLE events if time interval has elapsed                      */
 /*******************************************************************/
 byte action_idle() {
-  Serial.println("IDLE ACTION...");
+  DEBUG_PRINT("IDLE ACTION...");
 
   static unsigned long previousMillis = 0;
   unsigned long currentMillis = millis();
@@ -47,7 +47,7 @@ byte action_idle() {
 /* Reads buffer until empty - outputs response for debugging       */
 /*******************************************************************/
 byte action_receive() {
-  Serial.println("RECEIVE ACTION...");
+  DEBUG_PRINT("RECEIVE ACTION...");
 
   byte event = EVENT_DISCONNECT; // Default
 
@@ -64,13 +64,13 @@ byte action_receive() {
 /* Always fires CONNECT events - All sensor sampling happens here  */
 /*******************************************************************/
 byte action_sample() {
-  Serial.println("SAMPLE ACTION...");
+  DEBUG_PRINT("SAMPLE ACTION...");
   //byte event = EVENT_CONNECT; // Default
   byte event = EVENT_IDLE;    // Testing
 
   // Sample sensors
   sampleSensors();
-  
+
   // Update display
   updateDisplay(tempsBuf);
 
@@ -86,7 +86,7 @@ byte action_sample() {
 /*******************************************************************/
 byte action_connect()
 {
-  Serial.println("CONNECT ACTION...");
+  DEBUG_PRINT("CONNECT ACTION...");
 
   byte event = EVENT_FAIL; // Default
 
@@ -151,7 +151,7 @@ byte action_connect()
 /* triggers an alert                                               */
 /*******************************************************************/
 byte action_fail() {
-  Serial.println("FAIL ACTION...");
+  DEBUG_PRINT("FAIL ACTION...");
 
   byte event = EVENT_DISCONNECT; // Default
 
@@ -169,7 +169,7 @@ byte action_fail() {
 /* closed but there is still unread data in buffer.                */
 /*******************************************************************/
 byte action_disconnect() {
-  Serial.println("DISCONNECT ACTION...");
+  DEBUG_PRINT("DISCONNECT ACTION...");
 
   byte event = EVENT_IDLE;
 
@@ -210,22 +210,11 @@ void sampleSensors() {
 
   for (int i = 0; i < NUM_DEVICES; i++) {
     tempsBuf[i] = (getCelsius(deviceAddress[i]));
-    printAddress(deviceAddress[i]);
-    Serial.print(" ");
-    Serial.println(tempsBuf[i]);
-  }
-}
-
-/*******************************************************************/
-/* Print Onewire device address - for debugging                    */
-/*******************************************************************/
-void printAddress(DeviceAddress device)
-{
-  for (uint8_t i = 0; i < 8; i++)
-  {
-    // zero pad the address if necessary
-    if (device[i] < 16) Serial.print("0");
-    Serial.print(device[i], HEX);
+    #ifdef DEBUG_ONEWIRE
+      printAddress(deviceAddress[i]);
+      Serial.print(" Celsius: ");
+      Serial.println(tempsBuf[i]);
+    #endif
   }
 }
 
@@ -238,7 +227,6 @@ int16_t getCelsius(DeviceAddress device)
   int16_t raw = sensors.getTemp(device);
   return raw / 128;
 }
-
 
 /*******************************************************************/
 /* Update TFT display using values passed as pointer               */
