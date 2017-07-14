@@ -27,16 +27,14 @@ byte action_idle() {
   // Check for millis overflow and reset
   if (currentMillis < previousMillis) previousMillis = 0;
 
-  // Sample every UPDATE_INTERVAL
-  if (currentMillis - previousMillis >= UPDATE_INTERVAL) {
-    previousMillis = currentMillis;  // Update comparison
-    event = EVENT_SAMPLE;
-  }
-
   if (client.available()) {
     event = EVENT_RECEIVE;
   } else {
-    // do nothing
+    // Delay for interval without blocking
+    if (currentMillis - previousMillis >= SAMPLE_INTERVAL) {
+      previousMillis = currentMillis;  // Update comparison
+      event = EVENT_SAMPLE;
+    }
   }
   return event;
 }
@@ -210,11 +208,11 @@ void sampleSensors() {
 
   for (int i = 0; i < NUM_DEVICES; i++) {
     tempsBuf[i] = (getCelsius(deviceAddress[i]));
-    #ifdef DEBUG_ONEWIRE
-      printAddress(deviceAddress[i]);
-      Serial.print(" Celsius: ");
-      Serial.println(tempsBuf[i]);
-    #endif
+#ifdef DEBUG_ONEWIRE
+    printAddress(deviceAddress[i]);
+    Serial.print(" Celsius: ");
+    Serial.println(tempsBuf[i]);
+#endif
   }
 }
 

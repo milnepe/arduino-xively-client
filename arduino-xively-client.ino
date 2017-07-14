@@ -7,12 +7,16 @@
   Version: 0.4
 
   Xively Client Finite State Machine
-  Sends DS18X20 temperature readings to Xively API using
-  Ethernet Shield. Displays status on Green & Red LED's
-  Displays first 2 readings on Arduino TFT display
+  Samples DS18X20 temperature sensors and uploads readings to Xively API using
+  Ethernet Shield. Displays readings on Arduino TFT display
+  and status on Green & Red LED's
+  
 
   Based on code from http://www.arduino.cc
   by David A. Mellis, Tom Igoe, Adrian McEwen
+
+  LED interrup from Adafruit tutorial
+  https://learn.adafruit.com/multi-tasking-the-arduino-part-1/conclusion
 
 */
 
@@ -23,19 +27,20 @@
 #include <TFT.h>  // Arduino LCD library
 #include "client-conf.h"
 
+// Debugging - comment out to turn off
 #define DEBUG_SERIAL
 #define DEBUG
 #define DEBUG_ONEWIRE
 #include "DebugUtils.h"
 
 // I/O pins
-#define HEARTBEAT_LED 2 // Heartbeat LED pin 2
-#define RST 3           // TFT display reset
-#define WARNING_LED 5   // Warning LED pin 5
-#define CS 6            // TFT display CS
-#define ONEWIRE_BUS 7   // OneWire bus 
-#define RESET 8         // Ethernet reset pin 8
-#define DC 9            // TFT display DC
+#define HEARTBEAT_LED 2   // Heartbeat LED pin 2
+#define TFT_RESET 3       // TFT display reset
+#define WARNING_LED 5     // Warning LED pin 5
+#define TFT_CS 6          // TFT display CS
+#define ONEWIRE_BUS 7     // OneWire bus 
+#define ETHERNET_RESET 8  // Ethernet reset pin 8
+#define TFT_DC 9          // TFT display DC
 
 // System states
 #define STATE_IDLE 0
@@ -71,7 +76,7 @@ EthernetClient client; // initialize instance
 char server[] = "api.xively.com";   // name address for xively API
 
 // TFT display config
-TFT TFTscreen = TFT(CS, DC, RST);
+TFT TFTscreen = TFT(TFT_CS, TFT_DC, TFT_RESET);
 
 // Counters
 unsigned long successes = 0;  // Number of successful connections
@@ -82,18 +87,72 @@ boolean alertFlag = false;    // Indicates failed connection
 void(* resetFunc) (void) = 0;
 
 /*******************************************************************/
+/* LED class definition - flashes LED using interrups              */
+/*******************************************************************/
+class Flasher
+{
+  // Class Member Variables
+  // These are initialized at startup
+  int ledPin;      // the number of the LED pin
+  long OnTime;     // milliseconds of on-time
+  long OffTime;    // milliseconds of off-time
+ 
+  // These maintain the current state
+  int ledState;                 // ledState used to set the LED
+  unsigned long previousMillis;   // will store last time LED was updated
+ 
+  // Constructor - creates a Flasher 
+  // and initializes the member variables and state
+  public:
+  Flasher(int pin, long on, long off)
+  {
+  ledPin = pin;
+  pinMode(ledPin, OUTPUT);     
+    
+  OnTime = on;
+  OffTime = off;
+  
+  ledState = LOW; 
+  previousMillis = 0;
+  }
+ 
+  void Update(unsigned long currentMillis)
+  {
+    if((ledState == HIGH) && (currentMillis - previousMillis >= OnTime))
+    {
+      ledState = LOW;  // Turn it off
+      previousMillis = currentMillis;  // Remember the time
+      digitalWrite(ledPin, ledState);  // Update the actual LED
+    }
+    else if ((ledState == LOW) && (currentMillis - previousMillis >= OffTime))
+    {
+      ledState = HIGH;  // turn it on
+      previousMillis = currentMillis;   // Remember the time
+      digitalWrite(ledPin, ledState);   // Update the actual LED
+    }
+  }
+};
+
+// Instantiate Leds
+Flasher ledHeartBeat(HEARTBEAT_LED, 123, 400);
+Flasher ledAlert(WARNING_LED, 350, 350);
+
+/*******************************************************************/
 /* Runs once to initialise sensors and Ethernet shield             */
 /*******************************************************************/
 void setup() {
   #ifdef DEBUG_SERIAL  
     Serial.begin(9600);
     Serial.println("Starting...");
-  #endif    
+  #endif  
+
+  // Timer0 is already used for millis() - we'll just interrupt somewhere
+  // in the middle and call the "Compare A" function below
+  OCR0A = 0xAF;
+  TIMSK0 |= _BV(OCIE0A);    
 
   // Configure I/O pins
-  pinMode(HEARTBEAT_LED, OUTPUT);
-  pinMode(WARNING_LED, OUTPUT);
-  pinMode(RESET, OUTPUT);
+  pinMode(ETHERNET_RESET, OUTPUT);
 
   // Initialise OneWire bus & Temperature sensors 
   oneWireInit();  
@@ -110,7 +169,6 @@ void setup() {
 /*******************************************************************/
 void loop() {
   check_state();
-  show_state();
 }
 
 /*******************************************************************/
@@ -214,37 +272,19 @@ void check_state() {
 } // End check_state
 
 /*******************************************************************/
-/* Set LED's according to alert status                             */
+/* LED interrupt                                                   */
+/* Interrupt is called once a millisecond, looks for any new GPS   */ 
+/* data, and stores it                                             */
 /*******************************************************************/
-void show_state() {
-  static int ledState = HIGH;
-  static unsigned long previousLedMillis = 0;
-  unsigned long currentLedMillis = millis();
-
-  // Check for millis overflow and reset
-  if (currentLedMillis < previousLedMillis) previousLedMillis = 0;
-
-  if (currentLedMillis - previousLedMillis >= 1000 ) {
-    // save the last time you blinked the LED
-    previousLedMillis = currentLedMillis;
-
-    // if the LED is off turn it on and vice-versa:
-    if (ledState == LOW)
-      ledState = HIGH;
-    else
-      ledState = LOW;
-
-    if (!alertFlag) {
-      // set the LED with the ledState of the variable:
-      digitalWrite(HEARTBEAT_LED, ledState);
-      digitalWrite(WARNING_LED, LOW);
-    }
-    else {
-      digitalWrite(HEARTBEAT_LED, LOW);
-      digitalWrite(WARNING_LED, ledState);
-    }
+SIGNAL(TIMER0_COMPA_vect) 
+{
+  unsigned long currentMillis = millis();
+ 
+  ledHeartBeat.Update(currentMillis);
+  if (alertFlag){
+    ledAlert.Update(currentMillis);
   }
-}
+} 
 
 /*******************************************************************/
 /* Initialise OneWire bus & Temperature sensors                    */
