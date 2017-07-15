@@ -1,8 +1,9 @@
 XIVELY_FSM = IDLE,
 IDLE = (idle->IDLE
 		|sample->SAMPLING
-		|receive->RECEIVING),
-SAMPLING = (connect->CONNECTING),
+		|receive->RECEIVING
+		|connect->CONNECTING),
+SAMPLING = (idle->IDLE),
 CONNECTING =(disconnect->IDLE
 			|fail->FAILING),
 RECEIVING = (disconnect->IDLE),

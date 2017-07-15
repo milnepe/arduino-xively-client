@@ -10,7 +10,7 @@
   Samples DS18X20 temperature sensors and uploads readings to Xively API using
   Ethernet Shield. Displays readings on Arduino TFT display
   and status on Green & Red LED's
-  
+
 
   Based on code from http://www.arduino.cc
   by David A. Mellis, Tom Igoe, Adrian McEwen
@@ -42,20 +42,20 @@
 #define ETHERNET_RESET 8  // Ethernet reset pin 8
 #define TFT_DC 9          // TFT display DC
 
-// System states
+// System states - see LTSA diagram
 #define STATE_IDLE 0
-#define STATE_RECEIVING 1
-#define STATE_SAMPLING 2
-#define STATE_CONNECTING 3
-#define STATE_FAILING 4
+#define STATE_CONNECTING 1
+#define STATE_FAILING 2
+#define STATE_RECEIVING 3
+#define STATE_SAMPLING 4
 
 // System events
 #define EVENT_IDLE 0
-#define EVENT_RECEIVE 1
-#define EVENT_SAMPLE 2
-#define EVENT_CONNECT 3
-#define EVENT_DISCONNECT 4
-#define EVENT_FAIL 5
+#define EVENT_CONNECT 1
+#define EVENT_DISCONNECT 2
+#define EVENT_FAIL 3
+#define EVENT_RECEIVE 4
+#define EVENT_SAMPLE 5
 
 // Dallas OneWire config
 #define NUM_DEVICES 2   // Number of devices on bus
@@ -91,46 +91,48 @@ void(* resetFunc) (void) = 0;
 /*******************************************************************/
 class Flasher
 {
-  // Class Member Variables
-  // These are initialized at startup
-  int ledPin;      // the number of the LED pin
-  long OnTime;     // milliseconds of on-time
-  long OffTime;    // milliseconds of off-time
- 
-  // These maintain the current state
-  int ledState;                 // ledState used to set the LED
-  unsigned long previousMillis;   // will store last time LED was updated
- 
-  // Constructor - creates a Flasher 
-  // and initializes the member variables and state
+    // Class Member Variables
+    // These are initialized at startup
+    int ledPin;      // the number of the LED pin
+    long OnTime;     // milliseconds of on-time
+    long OffTime;    // milliseconds of off-time
+
+    // These maintain the current state
+    int ledState;                 // ledState used to set the LED
+    unsigned long previousMillis;   // will store last time LED was updated
+
+    // Constructor - creates a Flasher
+    // and initializes the member variables and state
   public:
-  Flasher(int pin, long on, long off)
-  {
-  ledPin = pin;
-  pinMode(ledPin, OUTPUT);     
-    
-  OnTime = on;
-  OffTime = off;
-  
-  ledState = LOW; 
-  previousMillis = 0;
-  }
- 
-  void Update(unsigned long currentMillis)
-  {
-    if((ledState == HIGH) && (currentMillis - previousMillis >= OnTime))
+    Flasher(int pin, long on, long off)
     {
-      ledState = LOW;  // Turn it off
-      previousMillis = currentMillis;  // Remember the time
-      digitalWrite(ledPin, ledState);  // Update the actual LED
+      ledPin = pin;
+      pinMode(ledPin, OUTPUT);
+
+      OnTime = on;
+      OffTime = off;
+
+      ledState = LOW;
+      previousMillis = 0;
     }
-    else if ((ledState == LOW) && (currentMillis - previousMillis >= OffTime))
-    {
-      ledState = HIGH;  // turn it on
-      previousMillis = currentMillis;   // Remember the time
-      digitalWrite(ledPin, ledState);   // Update the actual LED
+
+    void Update(unsigned long currentMillis) {
+      // Check for millis overflow and reset
+      if (currentMillis < previousMillis) previousMillis = 0;
+
+      if ((ledState == HIGH) && (currentMillis - previousMillis >= OnTime))
+      {
+        ledState = LOW;  // Turn it off
+        previousMillis = currentMillis;  // Remember the time
+        digitalWrite(ledPin, ledState);  // Update the actual LED
+      }
+      else if ((ledState == LOW) && (currentMillis - previousMillis >= OffTime))
+      {
+        ledState = HIGH;  // turn it on
+        previousMillis = currentMillis;   // Remember the time
+        digitalWrite(ledPin, ledState);   // Update the actual LED
+      }
     }
-  }
 };
 
 // Instantiate Leds
@@ -141,21 +143,21 @@ Flasher ledAlert(WARNING_LED, 350, 350);
 /* Runs once to initialise sensors and Ethernet shield             */
 /*******************************************************************/
 void setup() {
-  #ifdef DEBUG_SERIAL  
-    Serial.begin(9600);
-    Serial.println("Starting...");
-  #endif  
+#ifdef DEBUG_SERIAL
+  Serial.begin(9600);
+  Serial.println("Starting...");
+#endif
 
   // Timer0 is already used for millis() - we'll just interrupt somewhere
   // in the middle and call the "Compare A" function below
   OCR0A = 0xAF;
-  TIMSK0 |= _BV(OCIE0A);    
+  TIMSK0 |= _BV(OCIE0A);
 
   // Configure I/O pins
   pinMode(ETHERNET_RESET, OUTPUT);
 
-  // Initialise OneWire bus & Temperature sensors 
-  oneWireInit();  
+  // Initialise OneWire bus & Temperature sensors
+  oneWireInit();
 
   // Initialise TFT display
   displayInit();
@@ -196,10 +198,10 @@ void check_state() {
           event = action_idle();
           break;
 
-        case EVENT_SAMPLE:
-          DEBUG_PRINT("SAMPLE EVENT...");
-          state = STATE_SAMPLING;
-          event = action_sample();
+        case EVENT_CONNECT:
+          DEBUG_PRINT("CONNECT EVENT...");
+          state = STATE_CONNECTING;
+          event = action_connect();
           break;
 
         case EVENT_RECEIVE:
@@ -207,19 +209,19 @@ void check_state() {
           state = STATE_RECEIVING;
           event = action_receive();
           break;
+
+        case EVENT_SAMPLE:
+          DEBUG_PRINT("SAMPLE EVENT...");
+          state = STATE_SAMPLING;
+          event = action_sample();
+          break;
       }
       break; // End IDLE state
 
     case STATE_SAMPLING:
       DEBUG_PRINT("SAMPLING STATE...");
       switch ( event ) {
-        case EVENT_CONNECT:
-          DEBUG_PRINT("CONNECT EVENT...");
-          state = STATE_CONNECTING;
-          event = action_connect();
-          break;
 
-        // For testing
         case EVENT_IDLE:
           DEBUG_PRINT("IDLE EVENT...");
           state = STATE_IDLE;
@@ -273,18 +275,18 @@ void check_state() {
 
 /*******************************************************************/
 /* LED interrupt                                                   */
-/* Interrupt is called once a millisecond, looks for any new GPS   */ 
+/* Interrupt is called once a millisecond, looks for any new GPS   */
 /* data, and stores it                                             */
 /*******************************************************************/
-SIGNAL(TIMER0_COMPA_vect) 
+SIGNAL(TIMER0_COMPA_vect)
 {
   unsigned long currentMillis = millis();
- 
+
   ledHeartBeat.Update(currentMillis);
-  if (alertFlag){
+  if (alertFlag) {
     ledAlert.Update(currentMillis);
   }
-} 
+}
 
 /*******************************************************************/
 /* Initialise OneWire bus & Temperature sensors                    */
@@ -294,13 +296,13 @@ void oneWireInit() {
   oneWire.reset_search();
   for (int i = 0; i < NUM_DEVICES ; i++ ) {
     if (oneWire.search(deviceAddress[i])) { // Load each address into array
-      sensors.setResolution(deviceAddress[i], TEMPERATURE_PRECISION);      
-      #ifdef DEBUG_ONEWIRE      
-        printAddress(deviceAddress[i]); // Print address from array
-        Serial.print(" Device Resolution: ");
-        Serial.print(sensors.getResolution(deviceAddress[i]), DEC);
-        Serial.println();        
-      #endif        
+      sensors.setResolution(deviceAddress[i], TEMPERATURE_PRECISION);
+#ifdef DEBUG_ONEWIRE
+      printAddress(deviceAddress[i]); // Print address from array
+      Serial.print(" Device Resolution: ");
+      Serial.print(sensors.getResolution(deviceAddress[i]), DEC);
+      Serial.println();
+#endif
     }
   }
 }
@@ -337,8 +339,8 @@ void printAddress(DeviceAddress device)
 }
 
 /*
-// Initialise Ethernet adapter
-void ethernetInit(EthernetClient client) {
+  // Initialise Ethernet adapter
+  void ethernetInit(EthernetClient client) {
   // Initialise Ethernet Shield (DHCP)
 
   // Forced a hardware reset for some Ethernet Shields that
@@ -358,5 +360,5 @@ void ethernetInit(EthernetClient client) {
     delay(1000);
     resetFunc();  //call reset
   }
-}
+  }
 */

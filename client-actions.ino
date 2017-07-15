@@ -12,30 +12,48 @@
 
 /*******************************************************************/
 /* IDLE ACTION                                                     */
-/* Fires IDLE events by default                                    */
-/* RECEIVE events if buffer has received response from Xively      */
-/* SAMPLE events if time interval has elapsed                      */
+/* Transition to IDLE state by default                             */
+/* Transition to RECEIVING state if buffer received Xively response*/
+/* Transition to SAMPLING if sampling interval has elapsed         */
 /*******************************************************************/
 byte action_idle() {
   DEBUG_PRINT("IDLE ACTION...");
 
-  static unsigned long previousMillis = 0;
+  // Transition to IDLE
+  byte event = EVENT_IDLE;
+
+  // Get millis
   unsigned long currentMillis = millis();
 
-  byte event = EVENT_IDLE; // Default
-
-  // Check for millis overflow and reset
-  if (currentMillis < previousMillis) previousMillis = 0;
-
+  // Transition to RECEIVING
   if (client.available()) {
     event = EVENT_RECEIVE;
-  } else {
-    // Delay for interval without blocking
-    if (currentMillis - previousMillis >= SAMPLE_INTERVAL) {
-      previousMillis = currentMillis;  // Update comparison
-      event = EVENT_SAMPLE;
-    }
   }
+
+  // Transition to CONNECTING
+  static unsigned long previousConnectingMillis = 0;
+
+  // Check for millis overflow and reset
+  if (currentMillis < previousConnectingMillis) previousConnectingMillis = 0;
+
+  // Delay for interval without blocking
+  if (currentMillis - previousConnectingMillis >= CONNECT_INTERVAL) {
+    previousConnectingMillis = currentMillis;  // Update comparison
+    event = EVENT_CONNECT;
+  }
+
+  // Transition to SAMPLING
+  static unsigned long previousSamplingMillis = 0;
+
+  // Check for millis overflow and reset
+  if (currentMillis < previousSamplingMillis) previousSamplingMillis = 0;
+
+  // Delay for interval without blocking
+  if (currentMillis - previousSamplingMillis >= SAMPLE_INTERVAL) {
+    previousSamplingMillis = currentMillis;  // Update comparison
+    event = EVENT_SAMPLE;
+  }
+
   return event;
 }
 
@@ -63,7 +81,7 @@ byte action_receive() {
 /*******************************************************************/
 byte action_sample() {
   DEBUG_PRINT("SAMPLE ACTION...");
-  //byte event = EVENT_CONNECT; // Default
+
   byte event = EVENT_IDLE;    // Testing
 
   // Sample sensors
