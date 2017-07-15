@@ -22,13 +22,14 @@ byte action_idle() {
   // Transition to IDLE
   byte event = EVENT_IDLE;
 
-  // Get millis
-  unsigned long currentMillis = millis();
-
   // Transition to RECEIVING
   if (client.available()) {
     event = EVENT_RECEIVE;
+    return event;
   }
+
+  // Get millis
+  unsigned long currentMillis = millis();
 
   // Transition to CONNECTING
   static unsigned long previousConnectingMillis = 0;
@@ -40,6 +41,7 @@ byte action_idle() {
   if (currentMillis - previousConnectingMillis >= CONNECT_INTERVAL) {
     previousConnectingMillis = currentMillis;  // Update comparison
     event = EVENT_CONNECT;
+    return event;
   }
 
   // Transition to SAMPLING
@@ -52,6 +54,7 @@ byte action_idle() {
   if (currentMillis - previousSamplingMillis >= SAMPLE_INTERVAL) {
     previousSamplingMillis = currentMillis;  // Update comparison
     event = EVENT_SAMPLE;
+    return event;
   }
 
   return event;

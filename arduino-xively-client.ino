@@ -79,6 +79,7 @@ char server[] = "api.xively.com";   // name address for xively API
 TFT TFTscreen = TFT(TFT_CS, TFT_DC, TFT_RESET);
 
 // Counters
+unsigned long currentMillis = 0; // Holds timer
 unsigned long successes = 0;  // Number of successful connections
 unsigned long failures = 0;   // Number of failed connections
 boolean alertFlag = false;    // Indicates failed connection
@@ -170,6 +171,7 @@ void setup() {
 /* Runs FSM and displays system state                              */
 /*******************************************************************/
 void loop() {
+  //currentMillis = millis();
   check_state();
 }
 
